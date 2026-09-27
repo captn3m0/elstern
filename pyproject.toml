@@ -1,10 +1,10 @@
 [build-system]
-requires = ["uv_build>=0.12.0,<0.13.0"]
-build-backend = "uv_build"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
 [project]
 name = "elstern"
-version = "1.0.0"
+dynamic = ["version"]
 description = "A free, software-only client for ElsterSecure (Mein ELSTER) passwordless login"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -27,7 +27,11 @@ Issues = "https://github.com/captn3m0/elstern/issues"
 [project.scripts]
 elstern = "elstern.cli:main"
 
-[tool.uv.build-backend]
-module-name = "elstern"
-module-root = "src"
-source-include = ["contrib/**", "tests/**"]
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/elstern"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "/contrib", "/docs", "/README.md", "/LICENSE"]
