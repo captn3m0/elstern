@@ -1,5 +1,10 @@
 # elstern
 
+[![PyPI](https://img.shields.io/pypi/v/elstern)](https://pypi.org/project/elstern/)
+[![License](https://img.shields.io/pypi/l/elstern)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/captn3m0/elstern/test.yml?label=CI)](https://github.com/captn3m0/elstern/actions/workflows/test.yml)
+[![Release](https://img.shields.io/github/v/release/captn3m0/elstern)](https://github.com/captn3m0/elstern/releases/latest)
+
 A free, software-only client for **ElsterSecure** — the passwordless login of
 Germany's *Mein ELSTER* tax portal.
 
