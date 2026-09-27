@@ -1,0 +1,33 @@
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"
+
+[project]
+name = "elstern"
+version = "1.0.0"
+description = "A free, software-only client for ElsterSecure (Mein ELSTER) passwordless login"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "EUPL-1.2"
+license-files = ["LICENSE"]
+authors = [{ name = "Nemo", email = "pypi@captnemo.in" }]
+keywords = ["elster", "elstersecure", "mein-elster", "germany", "tax", "authentication"]
+dependencies = ["cryptography>=42"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security :: Cryptography",
+    "Environment :: Console",
+]
+
+[project.urls]
+Homepage = "https://github.com/captn3m0/elstern"
+Issues = "https://github.com/captn3m0/elstern/issues"
+
+[project.scripts]
+elstern = "elstern.cli:main"
+
+[tool.uv.build-backend]
+module-name = "elstern"
+module-root = "src"
+source-include = ["contrib/**", "tests/**"]
