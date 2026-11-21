@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <application
+        android:allowBackup="false"
+        android:label="elstern"
+        android:theme="@android:style/Theme.DeviceDefault.DayNight">
+        <activity android:name=".Main" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="elster-secure" />
+                <data android:scheme="https" android:host="www.elster.de" android:pathPrefix="/elstersecure" />
+            </intent-filter>
+        </activity>
+    <activity android:name=".Scan" android:exported="false" android:screenOrientation="portrait" />
+    </application>
+</manifest>

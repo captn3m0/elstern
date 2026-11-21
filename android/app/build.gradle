@@ -1,0 +1,33 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'in.captnemo.elstern'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'in.captnemo.elstern'
+        minSdk 34
+        targetSdk 36
+        versionCode 1
+        versionName '0.1.0'
+    }
+    signingConfigs {
+        release {
+            storeFile = file(System.getenv('KS_FILE') ?: 'none')
+            storePassword = System.getenv('KS_PASS')
+            keyAlias = 'elstern'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+            if (System.getenv('KS_FILE')) signingConfig = signingConfigs.release
+        }
+    }
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+}
+
+dependencies { implementation 'com.google.zxing:core:3.5.3' }
