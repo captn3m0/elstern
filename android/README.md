@@ -16,7 +16,7 @@ keys made before that keep working, re-enroll to bind them. Unit tests: `gradle 
 The scanner uses zxing-core (Apache-2.0); Android has no
 built-in QR decoder. The scanned link still needs the confirm tap.
 
-F-Droid: build from `android/`, `UpdateCheckMode: Tags` with `UpdateCheckData`/tag pattern `android/v*`, bump
+F-Droid: build from `android/`, `UpdateCheckMode: Tags` with `UpdateCheckData`/tag pattern `android/*`, bump
 `versionCode`/`versionName` in `app/build.gradle` per tag.
 
 Release signing key lives in `pass` (`elstern/android-release`: line 1 password,

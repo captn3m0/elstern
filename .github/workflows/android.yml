@@ -3,7 +3,7 @@ name: android
 on:
   push:
     branches: ["**"]
-    tags: ["android/v*"]
+    tags: ["android/*"]
     paths: ["android/**", ".github/workflows/android.yml"]
   pull_request:
     paths: ["android/**", ".github/workflows/android.yml"]
@@ -66,7 +66,7 @@ jobs:
         name: Check tag matches versionName
         run: |
           v=$(sed -n "s/.*versionName '\(.*\)'/\1/p" android/app/build.gradle)
-          [ "$TAG" = "android/v$v" ] || { echo "tag $TAG != android/v$v"; exit 1; }
+          [ "$TAG" = "android/$v" ] || { echo "tag $TAG != android/$v"; exit 1; }
       - name: Build signed APK
         working-directory: android
         env:
