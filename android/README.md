@@ -10,6 +10,9 @@ it into the app), then tap the button to enroll or log in.
 cd android && gradle assembleRelease
 ```
 
+Signing asks for the screen lock first. New keys also require it (30 s window);
+keys made before that keep working, re-enroll to bind them. Unit tests: `gradle testDebugUnitTest`.
+
 The scanner uses zxing-core (Apache-2.0); Android has no
 built-in QR decoder. The scanned link still needs the confirm tap.
 

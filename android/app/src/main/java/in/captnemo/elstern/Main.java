@@ -1,14 +1,17 @@
 package in.captnemo.elstern;
 
 import android.app.Activity;
+import android.app.KeyguardManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Insets;
-import android.net.Uri;
+import android.hardware.biometrics.BiometricManager;
+import android.hardware.biometrics.BiometricPrompt;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.CancellationSignal;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.text.Editable;
@@ -26,6 +29,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -119,21 +123,25 @@ public class Main extends Activity {
         go.setOnClickListener(v -> {
             String uri = in.getText().toString().trim();
             go.setEnabled(false);
-            out.setText("...");
-            new Thread(() -> {
-                String r;
-                try {
-                    r = finish();
-                } catch (Exception e) {
-                    r = String.valueOf(e);
-                }
-                String f = r;
-                runOnUiThread(() -> {
-                    last = uri;
-                    in.setText("");
-                    out.setText(f);
-                });
-            }).start();
+            Runnable sign = () -> {
+                out.setText("...");
+                new Thread(() -> {
+                    String r;
+                    try {
+                        r = finish();
+                    } catch (Exception e) {
+                        r = String.valueOf(e);
+                    }
+                    String f = r;
+                    runOnUiThread(() -> {
+                        last = uri;
+                        in.setText("");
+                        out.setText(f);
+                    });
+                }).start();
+            };
+            if (secure()) auth(gen, sign);
+            else sign.run();
         });
         l.addView(in);
         l.addView(scan, lp());
@@ -165,17 +173,55 @@ public class Main extends Activity {
                     out.setText(e2);
                     return;
                 }
-                String a = field(fields, "benutzername", "");
-                out.setText(a.isEmpty() ? "" : "Account: " + a);
+                StringBuilder sb = new StringBuilder();
+                for (String[] x : new String[][]{{"benutzername", "Account"}, {"email", "Email"}}) {
+                    String v = field(fields, x[0], "");
+                    if (!v.isEmpty()) sb.append(x[1]).append(": ").append(v).append('\n');
+                }
+                if (useCase.equals("addToken")) sb.append("Device: ").append(Build.MODEL);
+                out.setText(sb.toString().trim());
                 go.setText(useCase.equals("addToken") ? "Enroll" : "Log in");
                 go.setEnabled(true);
             });
         }).start();
     }
 
+    static String param(String u, String n) {
+        try {
+            String q = URI.create(u).getRawQuery();
+            if (q != null) for (String kv : q.split("&")) if (kv.startsWith(n + "=")) return kv.substring(n.length() + 1);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+        return null;
+    }
+
+    boolean secure() {
+        return ((KeyguardManager) getSystemService(KEYGUARD_SERVICE)).isDeviceSecure();
+    }
+
+    // gate signing behind the lock screen; keys created while secure also require it
+    void auth(int g, Runnable ok) {
+        new BiometricPrompt.Builder(this).setTitle(go.getText())
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG
+                        | BiometricManager.Authenticators.DEVICE_CREDENTIAL).build()
+                .authenticate(new CancellationSignal(), getMainExecutor(), new BiometricPrompt.AuthenticationCallback() {
+                    @Override
+                    public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult r) {
+                        ok.run();
+                    }
+
+                    @Override
+                    public void onAuthenticationError(int c, CharSequence m) {
+                        out.setText(m);
+                        if (g == gen) go.setEnabled(true);
+                    }
+                });
+    }
+
     static boolean valid(String u) {
         try {
-            JSONObject p = new JSONObject(new String(b64(Uri.parse(u).getQueryParameter("p")), StandardCharsets.UTF_8));
+            JSONObject p = new JSONObject(new String(b64(param(u, "p")), StandardCharsets.UTF_8));
             return (u.startsWith("elster-secure://") || u.startsWith(HOST + "elstersecure")) && p.has("bti")
                     && p.getJSONObject("r").getString("b").startsWith(HOST);
         } catch (Exception e) {
@@ -184,7 +230,7 @@ public class Main extends Activity {
     }
 
     synchronized void prep(String uri) throws Exception {
-        JSONObject p = new JSONObject(new String(b64(Uri.parse(uri).getQueryParameter("p")), StandardCharsets.UTF_8));
+        JSONObject p = new JSONObject(new String(b64(param(uri, "p")), StandardCharsets.UTF_8));
         JSONObject r = p.getJSONObject("r");
         bti = p.getString("bti");
         String base = r.getString("b");
@@ -204,10 +250,13 @@ public class Main extends Activity {
         ks.load(null);
         if (!ks.containsAlias(ALIAS)) {
             KeyPairGenerator g = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore");
-            g.initialize(new KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_SIGN)
+            KeyGenParameterSpec.Builder kb = new KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_SIGN)
                     .setAlgorithmParameterSpec(new ECGenParameterSpec("secp256r1"))
                     .setDigests(KeyProperties.DIGEST_SHA256)
-                    .setCertificateSubject(new X500Principal("CN=Android Keystore Key")).build());
+                    .setCertificateSubject(new X500Principal("CN=Android Keystore Key"));
+            if (secure()) kb.setUserAuthenticationParameters(30,
+                    KeyProperties.AUTH_BIOMETRIC_STRONG | KeyProperties.AUTH_DEVICE_CREDENTIAL);
+            g.initialize(kb.build());
             g.generateKeyPair();
         }
         key = (PrivateKey) ks.getKey(ALIAS, null);
@@ -317,14 +366,18 @@ public class Main extends Activity {
         Signature s = Signature.getInstance("SHA256withECDSA");
         s.initSign(key);
         s.update(si.getBytes(StandardCharsets.US_ASCII));
-        byte[] der = s.sign(), raw = new byte[64];
+        return si + "." + e.encodeToString(raw(s.sign()));
+    }
+
+    static byte[] raw(byte[] sig) {
+        byte[] raw = new byte[64];
         int p = 2;
         for (int i = 0; i < 2; i++) {
-            int n = der[p + 1] & 0xff, skip = Math.max(0, n - 32), c = n - skip;
-            System.arraycopy(der, p + 2 + skip, raw, i * 32 + 32 - c, c);
+            int n = sig[p + 1] & 0xff, skip = Math.max(0, n - 32), c = n - skip;
+            System.arraycopy(sig, p + 2 + skip, raw, i * 32 + 32 - c, c);
             p += 2 + n;
         }
-        return si + "." + e.encodeToString(raw);
+        return raw;
     }
 
     static JSONObject trans(String url, SecretKeySpec k, String cid, String type, JSONObject plain) throws Exception {
