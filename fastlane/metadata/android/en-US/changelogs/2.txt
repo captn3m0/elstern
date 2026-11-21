@@ -1,0 +1,1 @@
+Update to Android Gradle plugin 9 and zxing 3.5.4.
