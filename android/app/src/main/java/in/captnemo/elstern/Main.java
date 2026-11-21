@@ -1,6 +1,8 @@
 package in.captnemo.elstern;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Insets;
@@ -9,6 +11,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.WindowInsets;
 import android.widget.Button;
 import android.widget.EditText;
@@ -50,6 +54,14 @@ public class Main extends Activity {
     static final SecureRandom RND = new SecureRandom();
 
     EditText in;
+    Button go;
+    TextView out;
+    int gen;
+    String last = "", cid, tid, trans, bti, useCase;
+    PrivateKey key;
+    byte[] cert;
+    SecretKeySpec k;
+    JSONArray fields;
 
     @Override
     protected void onActivityResult(int rq, int rs, Intent d) {
@@ -57,50 +69,125 @@ public class Main extends Activity {
     }
 
     @Override
+    public void onWindowFocusChanged(boolean f) {
+        super.onWindowFocusChanged(f);
+        if (!f || in.getText().length() > 0) return;
+        ClipData c = ((ClipboardManager) getSystemService(CLIPBOARD_SERVICE)).getPrimaryClip();
+        if (c == null || c.getItemCount() == 0 || c.getItemAt(0).getText() == null) return;
+        String t = c.getItemAt(0).getText().toString().trim();
+        if (valid(t) && !t.equals(last)) in.setText(t);
+    }
+
+    LinearLayout.LayoutParams lp() {
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
+        p.topMargin = (int) (16 * getResources().getDisplayMetrics().density);
+        return p;
+    }
+
+    @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        int m = (int) (16 * getResources().getDisplayMetrics().density);
         LinearLayout l = new LinearLayout(this);
         l.setOrientation(LinearLayout.VERTICAL);
         l.setOnApplyWindowInsetsListener((v, w) -> {
             Insets i = w.getInsets(WindowInsets.Type.systemBars());
-            v.setPadding(i.left + 32, i.top + 32, i.right + 32, i.bottom + 32);
+            v.setPadding(i.left + m, i.top + m, i.right + m, i.bottom + m);
             return w;
         });
         in = new EditText(this);
         in.setHint("elster-secure://sec?p=...");
-        in.setText(getIntent().getDataString());
         Button scan = new Button(this);
         scan.setText("Scan QR");
         scan.setOnClickListener(v -> startActivityForResult(new Intent(this, Scan.class), 1));
-        Button go = new Button(this);
+        go = new Button(this);
+        go.setEnabled(false);
         go.setText("Enroll / log in");
-        TextView out = new TextView(this);
+        out = new TextView(this);
         out.setTextIsSelectable(true);
+        in.addTextChangedListener(new TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int a, int b, int c) {
+            }
+
+            public void onTextChanged(CharSequence s, int a, int b, int c) {
+            }
+
+            public void afterTextChanged(Editable e) {
+                check(e.toString().trim());
+            }
+        });
         go.setOnClickListener(v -> {
             String uri = in.getText().toString().trim();
+            go.setEnabled(false);
             out.setText("...");
             new Thread(() -> {
                 String r;
                 try {
-                    r = run(uri);
+                    r = finish();
                 } catch (Exception e) {
                     r = String.valueOf(e);
                 }
                 String f = r;
-                runOnUiThread(() -> out.setText(f));
+                runOnUiThread(() -> {
+                    last = uri;
+                    in.setText("");
+                    out.setText(f);
+                });
             }).start();
         });
         l.addView(in);
-        l.addView(scan);
-        l.addView(go);
-        l.addView(out);
+        l.addView(scan, lp());
+        l.addView(go, lp());
+        l.addView(out, lp());
         setContentView(l);
+        in.setText(getIntent().getDataString());
     }
 
-    String run(String uri) throws Exception {
+    // a valid link enables the button once the transaction type is known
+    void check(String uri) {
+        int g = ++gen;
+        go.setEnabled(false);
+        go.setText("Enroll / log in");
+        if (!valid(uri)) return;
+        go.setText("Checking...");
+        new Thread(() -> {
+            String err = null;
+            try {
+                prep(uri);
+            } catch (Exception e) {
+                err = String.valueOf(e);
+            }
+            String e2 = err;
+            runOnUiThread(() -> {
+                if (g != gen) return;
+                if (e2 != null) {
+                    go.setText("Enroll / log in");
+                    out.setText(e2);
+                    return;
+                }
+                String a = field(fields, "benutzername", "");
+                out.setText(a.isEmpty() ? "" : "Account: " + a);
+                go.setText(useCase.equals("addToken") ? "Enroll" : "Log in");
+                go.setEnabled(true);
+            });
+        }).start();
+    }
+
+    static boolean valid(String u) {
+        try {
+            JSONObject p = new JSONObject(new String(b64(Uri.parse(u).getQueryParameter("p")), StandardCharsets.UTF_8));
+            return (u.startsWith("elster-secure://") || u.startsWith(HOST + "elstersecure")) && p.has("bti")
+                    && p.getJSONObject("r").getString("b").startsWith(HOST);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    synchronized void prep(String uri) throws Exception {
         JSONObject p = new JSONObject(new String(b64(Uri.parse(uri).getQueryParameter("p")), StandardCharsets.UTF_8));
         JSONObject r = p.getJSONObject("r");
-        String bti = p.getString("bti"), base = r.getString("b");
+        bti = p.getString("bti");
+        String base = r.getString("b");
         if (!base.startsWith(HOST)) throw new IOException("untrusted host " + base);
 
         SharedPreferences sp = getSharedPreferences("s", 0);
@@ -110,7 +197,8 @@ public class Main extends Activity {
             sp.edit().putString("cid", UUID.randomUUID().toString().toUpperCase())
                     .putString("tid", Base64.getUrlEncoder().withoutPadding().encodeToString(t)).commit();
         }
-        String cid = sp.getString("cid", ""), tid = sp.getString("tid", "");
+        cid = sp.getString("cid", "");
+        tid = sp.getString("tid", "");
 
         KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
         ks.load(null);
@@ -122,8 +210,8 @@ public class Main extends Activity {
                     .setCertificateSubject(new X500Principal("CN=Android Keystore Key")).build());
             g.generateKeyPair();
         }
-        PrivateKey key = (PrivateKey) ks.getKey(ALIAS, null);
-        byte[] cert = ks.getCertificate(ALIAS).getEncoded();
+        key = (PrivateKey) ks.getKey(ALIAS, null);
+        cert = ks.getCertificate(ALIAS).getEncoded();
 
         KeyPairGenerator g = KeyPairGenerator.getInstance("EC");
         g.initialize(new ECGenParameterSpec("secp384r1"));
@@ -138,14 +226,17 @@ public class Main extends Activity {
         KeyAgreement ka = KeyAgreement.getInstance("ECDH");
         ka.init(kp.getPrivate());
         ka.doPhase(KeyFactory.getInstance("EC").generatePublic(new X509EncodedKeySpec(b64(pl.getString("B")))), true);
-        SecretKeySpec k = new SecretKeySpec(ka.generateSecret(), 0, 32, "AES");
-        String trans = base + r.getString("t");
+        k = new SecretKeySpec(ka.generateSecret(), 0, 32, "AES");
+        trans = base + r.getString("t");
 
         JSONObject d = trans(trans, k, cid, "GetTransactionDetails", new JSONObject().put("businessTransactionId", bti));
         if (d.has("data")) d = d.getJSONObject("data");
-        String useCase = d.optString("useCase");
-        JSONArray fields = d.optJSONArray("dataFields");
-        if (fields == null) return d.toString();
+        useCase = d.optString("useCase");
+        fields = d.optJSONArray("dataFields");
+        if (fields == null) throw new IOException(d.toString());
+    }
+
+    synchronized String finish() throws Exception {
         long iat = System.currentTimeMillis() / 1000;
         JSONObject sig = new JSONObject().put("tokenId", tid).put("tokenType", String.valueOf(TOKEN_TYPE));
         JSONObject resp;
