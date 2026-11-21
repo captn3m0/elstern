@@ -128,7 +128,7 @@ public class Main extends Activity {
                 new Thread(() -> {
                     String r;
                     try {
-                        r = finish();
+                        r = sign();
                     } catch (Exception e) {
                         r = String.valueOf(e);
                     }
@@ -285,7 +285,7 @@ public class Main extends Activity {
         if (fields == null) throw new IOException(d.toString());
     }
 
-    synchronized String finish() throws Exception {
+    synchronized String sign() throws Exception {
         long iat = System.currentTimeMillis() / 1000;
         JSONObject sig = new JSONObject().put("tokenId", tid).put("tokenType", String.valueOf(TOKEN_TYPE));
         JSONObject resp;
