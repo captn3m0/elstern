@@ -1,7 +1,7 @@
 # elstern for Android
 
 Two Java files; the only dependency is zxing-core for QR decoding. The login key is a
-non-exportable EC P-256 key in the Android Keystore. Requires Android 14+.
+non-exportable EC P-256 key in the Android Keystore. Requires Android 13+.
 
 Open an `elster-secure://` or `https://www.elster.de/elstersecure` link (or paste
 it into the app), then tap the button to enroll or log in.
