@@ -57,6 +57,21 @@ pass elstern 'elster-secure://sec?p=…'            # default key: elstern/elste
 pass elstern work/elster 'elster-secure://sec?p=…'  # a second, separate token
 ```
 
+## Android
+
+A small native app (Android 13+) does the same on your phone. The key lives in the Android
+Keystore and signing asks for your screen lock first. Scan the QR code, or open or paste the
+link, then tap **Enroll** or **Log in**.
+
+Signed APKs are on the [releases page](https://github.com/captn3m0/elstern/releases) (tags
+`android/<version>`), with build provenance you can check:
+
+```sh
+gh attestation verify elstern-1.0.0.apk -R captn3m0/elstern
+```
+
+See [`android/`](android/README.md) for building from source.
+
 ## License
 
 Licensed under the [EUPL‑1.2](LICENSE) license.
