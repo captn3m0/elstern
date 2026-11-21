@@ -29,6 +29,7 @@ elstern = "elstern.cli:main"
 
 [tool.hatch.version]
 source = "vcs"
+raw-options = { git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "v*"] }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/elstern"]

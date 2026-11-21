@@ -3,9 +3,8 @@ name: android
 on:
   push:
     branches: [main, android]
+    tags: ["android/v*"]
   pull_request:
-  release:
-    types: [published]
 
 permissions: {}
 
@@ -39,8 +38,7 @@ jobs:
       id-token: write
       attestations: write
     env:
-      TAG: ${{ github.event.release.tag_name }}
-      NAME: ${{ github.event.release.tag_name || github.sha }}
+      TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -54,11 +52,15 @@ jobs:
         with:
           gradle-version: "8.14.3"
           cache-disabled: true
-      - if: github.event_name == 'release'
+      - name: Name the APK
+        run: |
+          NAME=${TAG#android/}
+          echo "APK=$RUNNER_TEMP/elstern-${NAME:-$GITHUB_SHA}.apk" >> "$GITHUB_ENV"
+      - if: env.TAG != ''
         name: Check tag matches versionName
         run: |
           v=$(sed -n "s/.*versionName '\(.*\)'/\1/p" android/app/build.gradle)
-          [ "$TAG" = "v$v" ] || { echo "tag $TAG != v$v"; exit 1; }
+          [ "$TAG" = "android/v$v" ] || { echo "tag $TAG != android/v$v"; exit 1; }
       - name: Build signed APK
         working-directory: android
         env:
@@ -69,13 +71,13 @@ jobs:
           base64 -d <<<"$KS_B64" > "$KS_FILE"
           gradle --no-daemon assembleRelease
           rm -f "$KS_FILE"
-          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/elstern-$NAME.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$APK"
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: ${{ runner.temp }}/elstern-${{ github.event.release.tag_name || github.sha }}.apk
+          subject-path: ${{ env.APK }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: apk
-          path: ${{ runner.temp }}/elstern-*.apk
-      - if: github.event_name == 'release'
-        run: gh release upload "$TAG" "$RUNNER_TEMP/elstern-$NAME.apk" --repo "$GITHUB_REPOSITORY"
+          path: ${{ env.APK }}
+      - if: env.TAG != ''
+        run: gh release create "$TAG" "$APK" --title "Android ${TAG#android/}" --generate-notes --verify-tag --repo "$GITHUB_REPOSITORY"

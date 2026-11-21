@@ -8,6 +8,7 @@ permissions: {}
 
 jobs:
   build:
+    if: ${{ !startsWith(github.event.release.tag_name, 'android/') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -29,6 +30,7 @@ jobs:
 
   publish:
     needs: build
+    if: ${{ !startsWith(github.event.release.tag_name, 'android/') }}
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
