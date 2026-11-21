@@ -1,29 +1,21 @@
 # elstern for Android
 
-Two Java files; the only dependency is zxing-core for QR decoding. The login key is a
-non-exportable EC P-256 key in the Android Keystore. Requires Android 13+.
+A free-software reimplementation of the ElsterSecure app for Android.
+Needs Android 13 or newer.
 
-Open an `elster-secure://` or `https://www.elster.de/elstersecure` link (or paste
-it into the app), then tap the button to enroll or log in.
+> Unofficial. Not affiliated with ELSTER, the *Bundeszentralamt für Steuern*, or
+> secunet.
 
-```sh
-cd android && gradle assembleRelease
-```
+This is a ultra-minimal application - you can scan/link/paste the elster login/enroll
+links, and use them to login or enroll your device. That's pretty much it.
 
-Signing asks for the screen lock first. New keys also require it (30 s window);
-keys made before that keep working, re-enroll to bind them. Unit tests: `gradle testDebugUnitTest`.
+There is also a Python version if you'd rather not use your phone. See the
+parent [README](../README.md) for that.
 
-The scanner uses zxing-core (Apache-2.0); Android has no
-built-in QR decoder. The scanned link still needs the confirm tap.
+## License
 
-F-Droid: build from `android/`, `UpdateCheckMode: Tags` with `UpdateCheckData`/tag pattern `android/*`, bump
-`versionCode`/`versionName` in `app/build.gradle` per tag.
+Licensed under the [EUPL‑1.2](../LICENSE) license.
 
-Release signing key lives in `pass` (`elstern/android-release`: line 1 password,
-line 2 base64 PKCS12). Sign a build with:
+## Credits
 
-```sh
-E=$(pass show elstern/android-release); export KS_PASS=$(sed -n 1p <<<"$E")
-export KS_FILE=$(mktemp); sed -n 2p <<<"$E" | base64 -d > $KS_FILE
-gradle assembleRelease; shred -u $KS_FILE
-```
+[Asterisk icons](https://www.flaticon.com/free-icons/asterisk) created by Vectors Market - Flaticon.

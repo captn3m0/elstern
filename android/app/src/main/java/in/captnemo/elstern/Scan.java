@@ -19,71 +19,90 @@ import com.google.zxing.qrcode.QRCodeReader;
 
 @SuppressWarnings("deprecation")
 public class Scan extends Activity implements TextureView.SurfaceTextureListener, Camera.PreviewCallback {
-    Camera cam;
-    Camera.Size ps;
-    TextureView tv;
+    static final String TEXT = "t";
+
+    Camera camera;
+    Camera.Size size;
+    TextureView preview;
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
-        tv = new TextureView(this);
-        tv.setSurfaceTextureListener(this);
-        FrameLayout f = new FrameLayout(this);
-        f.addView(tv, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
-        setContentView(f);
-        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
-            requestPermissions(new String[]{Manifest.permission.CAMERA}, 1);
+        preview = new TextureView(this);
+        preview.setSurfaceTextureListener(this);
+        FrameLayout frame = new FrameLayout(this);
+        frame.addView(preview, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
+        setContentView(frame);
+        if (!hasCamera()) requestPermissions(new String[]{Manifest.permission.CAMERA}, 1);
     }
 
     @Override
-    public void onRequestPermissionsResult(int rq, String[] p, int[] r) {
+    public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
         recreate();
+    }
+
+    boolean hasCamera() {
+        return checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
     }
 
     @Override
     public void onSurfaceTextureAvailable(SurfaceTexture st, int w, int h) {
-        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) return;
+        if (!hasCamera()) return;
         try {
-            cam = Camera.open();
-            Camera.Parameters p = cam.getParameters();
+            camera = Camera.open();
+            Camera.Parameters p = camera.getParameters();
             p.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
-            // best-matching preview size up to 720p; the view is resized to keep its aspect ratio
-            float want = (float) h / w;
-            for (Camera.Size c : p.getSupportedPreviewSizes())
-                if (c.width <= 1280 && (ps == null || Math.abs(c.width / (float) c.height - want)
-                        < Math.abs(ps.width / (float) ps.height - want))) ps = c;
-            p.setPreviewSize(ps.width, ps.height);
-            float ar = (float) ps.height / ps.width;
-            boolean wide = w / (float) h > ar;
-            tv.setLayoutParams(new FrameLayout.LayoutParams(wide ? (int) (h * ar) : w, wide ? h : (int) (w / ar), Gravity.CENTER));
-            cam.setParameters(p);
-            cam.setDisplayOrientation(90);
-            cam.setPreviewTexture(st);
-            cam.setPreviewCallback(this);
-            cam.startPreview();
+            size = closestSize(p, (float) h / w);
+            p.setPreviewSize(size.width, size.height);
+            camera.setParameters(p);
+            fitPreview(w, h);
+            camera.setDisplayOrientation(90);
+            camera.setPreviewTexture(st);
+            camera.setPreviewCallback(this);
+            camera.startPreview();
         } catch (Exception e) {
             finish();
         }
     }
 
+    static Camera.Size closestSize(Camera.Parameters p, float ratio) {
+        Camera.Size best = null;
+        for (Camera.Size s : p.getSupportedPreviewSizes()) {
+            if (s.width <= 1280 && (best == null || distance(s, ratio) < distance(best, ratio))) best = s;
+        }
+        return best;
+    }
+
+    static float distance(Camera.Size s, float ratio) {
+        return Math.abs(s.width / (float) s.height - ratio);
+    }
+
+    void fitPreview(int w, int h) {
+        float ratio = (float) size.height / size.width;
+        boolean wide = w / (float) h > ratio;
+        int width = wide ? (int) (h * ratio) : w, height = wide ? h : (int) (w / ratio);
+        preview.setLayoutParams(new FrameLayout.LayoutParams(width, height, Gravity.CENTER));
+    }
+
     @Override
-    public void onPreviewFrame(byte[] d, Camera c) {
+    public void onPreviewFrame(byte[] data, Camera c) {
+        PlanarYUVLuminanceSource frame = new PlanarYUVLuminanceSource(
+                data, size.width, size.height, 0, 0, size.width, size.height, false);
         try {
-            String t = new QRCodeReader().decode(new BinaryBitmap(new HybridBinarizer(
-                    new PlanarYUVLuminanceSource(d, ps.width, ps.height, 0, 0, ps.width, ps.height, false)))).getText();
-            setResult(RESULT_OK, new Intent().putExtra("t", t));
+            String text = new QRCodeReader().decode(new BinaryBitmap(new HybridBinarizer(frame))).getText();
+            setResult(RESULT_OK, new Intent().putExtra(TEXT, text));
             finish();
         } catch (ReaderException e) {
-            // no code in this frame
+            // no QR code in this frame
         }
     }
 
     @Override
     public boolean onSurfaceTextureDestroyed(SurfaceTexture st) {
-        if (cam != null) {
-            cam.setPreviewCallback(null);
-            cam.release();
-            cam = null;
+        if (camera != null) {
+            camera.setPreviewCallback(null);
+            camera.release();
+            camera = null;
         }
         return true;
     }

@@ -75,7 +75,3 @@ See [`android/`](android/README.md) for building from source.
 ## License
 
 Licensed under the [EUPL‑1.2](LICENSE) license.
-
-## Credits
-
-<a href="https://www.flaticon.com/free-icons/asterisk" title="asterisk icons">Asterisk icons created by Vectors Market - Flaticon</a>
