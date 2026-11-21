@@ -36,7 +36,7 @@ jobs:
           path: android/app/build/outputs/apk/release/*.apk
 
   apk:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     environment: android
     permissions:
