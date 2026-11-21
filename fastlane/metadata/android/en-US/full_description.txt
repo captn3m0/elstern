@@ -1,0 +1,9 @@
+A small, free ElsterSecure authenticator for Mein ELSTER, the passwordless login of Germany's tax portal.
+
+Scan the QR code (or open or paste the link) that Mein ELSTER shows to add this phone as a login option or to log in. The app works out which one it is and labels the button Enroll or Log in. Nothing is signed until you tap it, and with a screen lock set you confirm with it first.
+
+- The login key is an EC P-256 key stored in the Android Keystore and never leaves the device.
+- No accounts, no analytics, no tracking. The only network host it talks to is www.elster.de.
+- Open source (EUPL-1.2), a single Java activity with zxing-core for QR decoding.
+
+Unofficial. Not affiliated with ELSTER, the Bundeszentralamt fuer Steuern, or secunet. ElsterSecure and Mein ELSTER are their trademarks. Use it with your own account, at your own risk.
