@@ -14,6 +14,7 @@ android {
         release {
             storeFile = file(System.getenv('KS_FILE') ?: 'none')
             storePassword = System.getenv('KS_PASS')
+            keyPassword = System.getenv('KS_PASS')
             keyAlias = 'elstern'
         }
     }
