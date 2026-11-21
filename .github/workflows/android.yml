@@ -2,9 +2,11 @@ name: android
 
 on:
   push:
-    branches: [main, android]
+    branches: ["**"]
     tags: ["android/v*"]
+    paths: ["android/**", ".github/workflows/android.yml"]
   pull_request:
+    paths: ["android/**", ".github/workflows/android.yml"]
 
 permissions: {}
 
@@ -28,6 +30,10 @@ jobs:
           cache-disabled: true
       - run: gradle --no-daemon testDebugUnitTest assembleRelease
         working-directory: android
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apk-unsigned
+          path: android/app/build/outputs/apk/release/*.apk
 
   apk:
     if: github.event_name != 'pull_request'
